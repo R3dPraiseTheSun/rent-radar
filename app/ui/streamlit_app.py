@@ -139,8 +139,6 @@ if mode == "Top picks":
                     st.image(image_paths[selected_idx], use_container_width=True)
                 else:
                     st.info("No saved images yet")
-                else:
-                    st.info("No saved images yet")
 
             with right:
                 st.markdown(f"### {row.get('title') or 'Untitled listing'}")
