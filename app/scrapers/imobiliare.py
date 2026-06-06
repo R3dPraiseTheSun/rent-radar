@@ -1,5 +1,6 @@
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
@@ -92,6 +93,65 @@ class ImobiliareScraper(BaseRentScraper):
         return "/oferta/" in url and "apartament-de-inchiriat" in url
 
     @staticmethod
+    def extract_currency(text: str, fallback: str = "EUR") -> str:
+        from app.scrapers.utils import detect_currency
+        return detect_currency(text, fallback=fallback)
+
+
+    @staticmethod
+    def is_imobiliare_listing_image(url: str | None) -> bool:
+        if not url:
+            return False
+
+        u = url.strip().lower()
+
+        if not u.startswith(("http://", "https://")):
+            return False
+
+        parsed = urlparse(u)
+        host = parsed.netloc
+        path = parsed.path
+
+        # Reject non-raster files and website UI assets.
+        if path.endswith((".svg", ".ico")):
+            return False
+
+        if host == "assets.imobiliare.ro":
+            return False
+
+        if any(bad in u for bad in [
+            "/theme/",
+            "/assets/",
+            "app-store",
+            "logo",
+            "placeholder",
+            "user-placeholder",
+            "agent",
+            "agency",
+            "avatar",
+            "icon",
+            "bus",
+            "station",
+            "airplane",
+            "tram",
+            "metro",
+            "school",
+            "hospital",
+            "marker",
+            "pin",
+        ]):
+            return False
+
+        # Strong positive signal for real Imobiliare property photos.
+        if host == "i.roamcdn.net" and "/prop/imo/" in path:
+            return True
+
+        if "prod-property-core-backend-media-imo" in u:
+            return True
+
+        return False
+
+    @staticmethod
     def extract_image_urls(value) -> list[str]:
         urls = []
 
@@ -109,29 +169,39 @@ class ImobiliareScraper(BaseRentScraper):
         return urls
 
     def extract_gallery_images(self, soup: BeautifulSoup, next_data: dict | None) -> list[str]:
-        from app.scrapers.utils import is_probable_listing_image, dedupe_keep_order
+        from app.scrapers.utils import dedupe_keep_order
 
         images = []
 
         selectors = [
-            'img[class*="gallery"]',
-            'img[class*="photo"]',
-            'img[class*="image"]',
-            'picture img',
-            'figure img',
-            '[data-testid*="gallery"] img',
-            '[data-cy*="gallery"] img',
+            # Matches the image visible in your screenshot:
+            # <img class="absolute inset-0 h-full w-full scale-110 object-cover blur-xl" ...>
+            # <img class="relative h-full w-full object-contain" ...>
+            "img[src*='i.roamcdn.net/prop/imo/']",
+            "img[srcset*='i.roamcdn.net/prop/imo/']",
+            "img[data-src*='i.roamcdn.net/prop/imo/']",
+
+            # Gallery/container fallbacks.
+            "[ref='gallery'] img",
+            "[class*='gallery'] img",
+            "[class*='swiper'] img",
+            "img.swiper-lazy",
+            "img.object-contain",
+            "img.object-cover",
+            "img.md\\:object-contain",
+            "picture img",
+            "figure img",
         ]
 
         for selector in selectors:
             for img in soup.select(selector):
-                for attr in ["src", "data-src", "srcset"]:
+                for attr in ["src", "data-src", "data-lazy", "data-original", "srcset"]:
                     value = img.get(attr)
                     if not value:
                         continue
 
                     if attr == "srcset":
-                        parts = [p.strip().split(" ")[0] for p in value.split(",")]
+                        parts = [p.strip().split(" ")[0] for p in value.split(",") if p.strip()]
                         images.extend(parts)
                     else:
                         images.append(value)
@@ -139,53 +209,105 @@ class ImobiliareScraper(BaseRentScraper):
         if next_data:
             possible_images = recursive_find_values(
                 next_data,
-                {"url", "src", "image", "images", "photos", "gallery"},
+                {
+                    "url",
+                    "src",
+                    "large",
+                    "medium",
+                    "small",
+                    "image",
+                    "images",
+                    "photos",
+                    "gallery",
+                    "galleryImages",
+                },
             )
 
             for value in possible_images:
                 images.extend(self.extract_image_urls(value))
 
-        images = [x for x in images if is_probable_listing_image(x)]
-
-        # Imobiliare random website assets often include generic paths.
-        images = [
-            x for x in images
-            if not any(bad in x.lower() for bad in ["logo", "user-placeholder", "agent", "agency"])
-        ]
+        images = [x for x in images if self.is_imobiliare_listing_image(x)]
 
         return dedupe_keep_order(images)
+
+    @staticmethod
+    def extract_listing_address(soup: BeautifulSoup) -> str | None:
+        selectors = [
+            '[data-cy="listing-address"]',
+            '[data-testid="listing-address"]',
+            '[class*="listing-address"]',
+            '[class*="address"]',
+            '[class*="location"]',
+        ]
+
+        for selector in selectors:
+            element = soup.select_one(selector)
+            if element:
+                text = clean_text(element.get_text(" ", strip=True))
+                if text:
+                    return text
+
+        # Breadcrumb fallback: useful when address element is hidden or missing.
+        breadcrumb_parts = []
+        for element in soup.select('nav a, [aria-label*="breadcrumb"] a, [class*="breadcrumb"] a, [class*="breadcrumb"] span'):
+            text = clean_text(element.get_text(" ", strip=True))
+            if text:
+                breadcrumb_parts.append(text)
+
+        if breadcrumb_parts:
+            return " ".join(breadcrumb_parts)
+
+        return None
 
     @staticmethod
     def extract_zone_from_listing(
         title: str | None,
         description: str | None,
         url: str | None,
+        address: str | None = None,
     ) -> str | None:
-        text = " ".join([title or "", description or "", url or ""]).lower()
+        zone_aliases = [
+            ("Alexandru cel Bun", ["alexandru-cel-bun", "alexandru cel bun"]),
+            ("Tatarasi", ["tatarasi", "tătărași"]),
+            ("Podu Ros", ["podu-ros", "podu ros", "podu roș"]),
+            ("Nicolina", ["nicolina"]),
+            ("Pacurari", ["pacurari", "păcurari"]),
+            ("Centru", ["central", "centru", "ultracentral", "palas"]),
+            ("CUG", ["cug"]),
+            ("Moara de Vant", ["moara-de-vant", "moara de vant", "moara de vânt"]),
+            ("Dacia", ["dacia"]),
+            ("Tudor Vladimirescu", ["tudor-vladimirescu", "tudor vladimirescu"]),
+            ("Mircea cel Batran", ["mircea-cel-batran", "mircea cel batran", "mircea cel bătrân"]),
+            ("Bucium", ["bucium"]),
+            ("Galata", ["galata"]),
+            ("Frumoasa", ["frumoasa"]),
+            ("Copou", ["copou"]),
+        ]
 
-        zone_aliases = {
-            "Copou": ["copou"],
-            "Tatarasi": ["tatarasi", "tătărași", "tatarasi"],
-            "Podu Ros": ["podu-ros", "podu ros", "podu roș"],
-            "Nicolina": ["nicolina"],
-            "Pacurari": ["pacurari", "păcurari"],
-            "Alexandru cel Bun": ["alexandru-cel-bun", "alexandru cel bun"],
-            "Centru": ["central", "centru", "ultracentral", "palas"],
-            "CUG": ["cug"],
-            "Moara de Vant": ["moara-de-vant", "moara de vant", "moara de vânt"],
-            "Dacia": ["dacia"],
-            "Tudor Vladimirescu": ["tudor-vladimirescu", "tudor vladimirescu"],
-            "Mircea cel Batran": ["mircea-cel-batran", "mircea cel batran", "mircea cel bătrân"],
-            "Bucium": ["bucium"],
-            "Galata": ["galata"],
-            "Frumoasa": ["frumoasa"],
-        }
+        def find_zone(text: str | None) -> str | None:
+            if not text:
+                return None
 
-        for zone, aliases in zone_aliases.items():
-            if any(alias in text for alias in aliases):
-                return zone
+            lowered = text.lower()
 
-        return None
+            for zone, aliases in zone_aliases:
+                if any(alias in lowered for alias in aliases):
+                    return zone
+
+            return None
+
+        # Highest confidence: actual address from the listing page.
+        zone = find_zone(address)
+        if zone:
+            return zone
+
+        # Medium confidence: title and URL.
+        zone = find_zone(" ".join([title or "", url or ""]))
+        if zone:
+            return zone
+
+        # Lowest confidence: description, because it can include unrelated page content.
+        return find_zone(description)
         
     async def scrape_listing(self, url: str) -> dict[str, Any]:
         html = await self.client.get_html(url)
@@ -235,6 +357,7 @@ class ImobiliareScraper(BaseRentScraper):
         title = None
         description = None
         gallery_images = self.extract_gallery_images(soup, next_data)
+        address = self.extract_listing_address(soup)
         price = None
         currency = "EUR"
 
@@ -281,7 +404,12 @@ class ImobiliareScraper(BaseRentScraper):
                 "price_eur": parse_float(price) or self.extract_price_from_text(text_blob),
                 "currency": self.extract_currency(text_blob, currency or "EUR"),
                 "city": "Iasi",
-                "zone": self.extract_zone_from_listing(title, self.extract_description_fallback(soup), url),
+                "zone": self.extract_zone_from_listing(
+                    title,
+                    self.extract_description_fallback(soup),
+                    url,
+                    address=address,
+                ),
                 "rooms": self.extract_rooms(text_blob),
                 "surface_m2": self.extract_surface(text_blob),
                 "floor": self.extract_floor(text_blob),
@@ -293,7 +421,7 @@ class ImobiliareScraper(BaseRentScraper):
 
     def from_html_fallback(self, url: str, soup: BeautifulSoup) -> dict[str, Any]:
         text = soup.get_text(" ", strip=True)
-
+        address = self.extract_listing_address(soup)
         title = None
 
         h1 = soup.select_one("h1")
@@ -304,10 +432,19 @@ class ImobiliareScraper(BaseRentScraper):
             title = soup.title.get_text(" ", strip=True)
 
         images = []
-        for img in soup.select("img[src]"):
-            src = img.get("src")
-            if src and src.startswith("http"):
-                images.append(src)
+        for img in soup.select("img[src], img[srcset], img[data-src]"):
+            for attr in ["src", "data-src", "srcset"]:
+                value = img.get(attr)
+                if not value:
+                    continue
+
+                if attr == "srcset":
+                    parts = [p.strip().split(" ")[0] for p in value.split(",") if p.strip()]
+                    images.extend(parts)
+                else:
+                    images.append(value)
+
+        images = [x for x in images if self.is_imobiliare_listing_image(x)]
 
         return {
             "source": self.source_name,
@@ -318,11 +455,16 @@ class ImobiliareScraper(BaseRentScraper):
             "price_eur": self.extract_price_from_text(text),
             "currency": "EUR",
             "city": "Iasi",
-            "zone": self.extract_zone(text),
+            "zone": self.extract_zone_from_listing(
+                title,
+                self.extract_description_fallback(soup),
+                url,
+                address=address,
+            ),
             "rooms": self.extract_rooms(text),
             "surface_m2": self.extract_surface(text),
             "floor": self.extract_floor(text),
-            "image_urls": sorted(set(images)),
+            "image_urls": list(dict.fromkeys(images)),
         }
 
     @staticmethod

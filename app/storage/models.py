@@ -258,3 +258,23 @@ class PipelineRun(Base):
     raw_count = Column(Integer)
     curated_count = Column(Integer)
     top_count = Column(Integer)
+
+class ScrapeQueue(Base):
+    __tablename__ = "scrape_queue"
+
+    id = Column(Integer, primary_key=True)
+    snapshot_date = Column(Date, nullable=False)
+
+    source = Column(String, nullable=False)
+    url = Column(Text, nullable=False)
+
+    status = Column(String, default="pending")  # pending, running, success, failed
+    attempts = Column(Integer, default=0)
+
+    last_error = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime)
+
+    __table_args__ = (
+        UniqueConstraint("snapshot_date", "source", "url", name="uq_scrape_queue_daily_url"),
+    )

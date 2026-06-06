@@ -108,21 +108,21 @@ async def scrape_and_save_url(
 
             if not payload:
                 print(f"[ingest] skipping empty payload: {url}")
-                continue
+                return False
 
             if not payload.get("source_url"):
                 print(f"[ingest] skipping malformed payload: {url}")
-                continue
+                return False
 
             if payload.get("source") == "storia_ro":
                 if "/hpr/" in payload.get("source_url", ""):
                     print(f"[ingest] skipping non-canonical Storia URL: {url}")
-                    continue
+                    return False
 
             if payload.get("source") == "imobiliare_ro":
                 if "/oferta/" not in payload.get("source_url", ""):
                     print(f"[ingest] skipping non-offer Imobiliare URL: {url}")
-                    continue
+                    return False
 
             if not payload.get("title") and not payload.get("price_eur"):
                 print(
@@ -131,7 +131,7 @@ async def scrape_and_save_url(
                     f"price={payload.get('price_eur')} "
                     f"url={url}"
                 )
-                continue
+                return False
 
             insert_raw_snapshot(
                 session,
@@ -140,7 +140,6 @@ async def scrape_and_save_url(
                 eur_ron_rate=eur_ron_rate,
             )
             session.commit()
-            saved_count += 1
 
             print(
                 "[ingest] saved "

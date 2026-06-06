@@ -13,7 +13,7 @@ sites:
     property_type: "apartamente"
     city_slug: "iasi"
     rate_limit_seconds: 4
-    max_pages_per_run: 3
+    max_pages_per_run: 1
 
   imobiliare_ro:
     enabled: true
@@ -23,4 +23,4 @@ sites:
     property_type: "apartamente"
     city_slug: "iasi"
     rate_limit_seconds: 4
-    max_pages_per_run: 3
+    max_pages_per_run: 1
