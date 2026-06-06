@@ -537,7 +537,7 @@ class ImobiliareScraper(BaseRentScraper):
         for pattern in patterns:
             match = re.search(pattern, text, flags=re.IGNORECASE)
             if match:
-                return parse_float(match.group(1))
+                return int(parse_float(match.group(1)))
 
         return None
 
