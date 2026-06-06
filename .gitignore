@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Local data / databases
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# Docker build/export artifacts
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+rent-radar-pi.tar
+rent-radar-prod-packet.tar.gz
+
+# Docker / OS junk
+.docker/
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

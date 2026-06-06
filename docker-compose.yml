@@ -1,0 +1,30 @@
+services:
+  rent-radar:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rent-radar
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+      - ./data:/data
+      - ./logs:/logs
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+
+  rent-radar-daily:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rent-radar-daily
+    env_file:
+      - .env
+    volumes:
+      - ./app:/app/app
+      - ./data:/data
+      - ./logs:/logs
+    command: ["python", "-m", "app.pipeline.daily_run"]
+    profiles:
+      - manual

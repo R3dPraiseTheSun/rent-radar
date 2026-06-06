@@ -1,0 +1,33 @@
+services:
+  rent-radar:
+    image: rent-radar:pi
+    container_name: rent-radar
+    env_file:
+      - .env.prod
+    volumes:
+      - ./data:/data
+      - ./logs:/logs
+      - ./config:/app/app/config
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+    command: [
+      "streamlit",
+      "run",
+      "app/ui/streamlit_app.py",
+      "--server.address=0.0.0.0",
+      "--server.port=8501"
+    ]
+
+  rent-radar-daily:
+    image: rent-radar:pi
+    container_name: rent-radar-daily
+    env_file:
+      - .env.prod
+    volumes:
+      - ./data:/data
+      - ./logs:/logs
+      - ./config:/app/app/config
+    command: ["python", "-m", "app.pipeline.daily_run"]
+    profiles:
+      - manual

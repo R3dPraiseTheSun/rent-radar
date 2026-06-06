@@ -1,0 +1,26 @@
+sites:
+  mock:
+    enabled: false
+    source_name: mock
+    rate_limit_seconds: 0
+    max_pages_per_run: 1
+
+  storia_ro:
+    enabled: true
+    source_name: storia_ro
+    base_url: "https://www.storia.ro"
+    category: "chirii"
+    property_type: "apartamente"
+    city_slug: "iasi"
+    rate_limit_seconds: 4
+    max_pages_per_run: 3
+
+  imobiliare_ro:
+    enabled: true
+    source_name: imobiliare_ro
+    base_url: "https://www.imobiliare.ro"
+    category: "chirii"
+    property_type: "apartamente"
+    city_slug: "iasi"
+    rate_limit_seconds: 4
+    max_pages_per_run: 3

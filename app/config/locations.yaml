@@ -1,0 +1,13 @@
+locations:
+  - city: "Iasi"
+    zones:
+      - "Copou"
+      - "Tatarasi"
+      - "Podu Ros"
+      - "Nicolina"
+      - "Pacurari"
+      - "Alexandru cel Bun"
+      - "Centru"
+      - "CUG"
+      - "Moara de Vant"
+      - "Dacia"
