@@ -171,7 +171,7 @@ class StoriaScraper(BaseRentScraper):
 
         return dedupe_keep_order(images)
 
-        
+
     @staticmethod
     def extract_price_from_visible_price_text(soup: BeautifulSoup) -> float | None:
         candidates = []
@@ -198,23 +198,35 @@ class StoriaScraper(BaseRentScraper):
 
 
     @staticmethod
+    def normalize_price_number(value: str) -> str:
+        value = value.strip()
+
+        # 1,200 or 1.200 -> 1200
+        if re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", value):
+            return value.replace(",", "").replace(".", "")
+
+        return value
+
+    @staticmethod
     def extract_price_from_text(text: str) -> float | None:
         if not text:
             return None
 
         normalized = text.replace("\xa0", " ")
 
+        price_number = r"\d{1,3}(?:[.,]\d{3})+|\d{2,6}"
+
         patterns = [
-            r"(?:pret|preț|chirie|rent)[^\d]{0,20}(\d{2,6})\s*(?:€|eur|euro|ron|lei|leu)",
-            r"(\d{2,6})\s*(?:€|eur|euro|ron|lei|leu)\s*(?:/ luna|/ lună|luna|lună)?",
-            r"(?:€|eur|euro|ron|lei|leu)\s*(\d{2,6})",
+            rf"(?:pret|preț|chirie|rent)[^\d]{{0,20}}({price_number})\s*(?:€|eur|euro|ron|lei|leu)",
+            rf"({price_number})\s*(?:€|eur|euro|ron|lei|leu)\s*(?:/ luna|/ lună|luna|lună)?",
+            rf"(?:€|eur|euro|ron|lei|leu)\s*({price_number})",
         ]
 
         candidates = []
 
         for pattern in patterns:
             for match in re.finditer(pattern, normalized, flags=re.IGNORECASE):
-                parsed = parse_float(match.group(1))
+                parsed = parse_float(ImobiliareScraper.normalize_price_number(match.group(1)))
                 if parsed and 50 <= parsed <= 50000:
                     candidates.append(parsed)
 
@@ -469,7 +481,7 @@ class StoriaScraper(BaseRentScraper):
         for pattern in patterns[:-1]:
             match = re.search(pattern, text, flags=re.IGNORECASE)
             if match:
-                return parse_float(match.group(1))
+                return int(parse_float(match.group(1)))
 
         return None
 
