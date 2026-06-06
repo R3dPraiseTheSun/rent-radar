@@ -193,6 +193,8 @@ def is_probable_listing_image(url: str | None) -> bool:
         "advert",
         "ads",
         "tracking",
+        "app",
+        "asset",
     ]
 
     if any(x in lower for x in blocked):

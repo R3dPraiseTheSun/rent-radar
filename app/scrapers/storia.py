@@ -1,4 +1,6 @@
 import re
+import asyncio
+import os
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -102,6 +104,11 @@ class StoriaScraper(BaseRentScraper):
 
         # Accept only canonical public listing pages.
         return "/ro/oferta/" in url and "-ID" in url
+
+    @staticmethod
+    def extract_currency(text: str, fallback: str = "EUR") -> str:
+        from app.scrapers.utils import detect_currency
+        return detect_currency(text, fallback=fallback)
     
     @staticmethod
     def extract_image_urls(value) -> list[str]:
@@ -163,6 +170,8 @@ class StoriaScraper(BaseRentScraper):
         images = [x for x in images if is_probable_listing_image(x)]
 
         return dedupe_keep_order(images)
+
+        
     @staticmethod
     def extract_price_from_visible_price_text(soup: BeautifulSoup) -> float | None:
         candidates = []
@@ -213,6 +222,27 @@ class StoriaScraper(BaseRentScraper):
             return None
 
         return candidates[0]
+
+    async def scrape_listing(self, url: str) -> dict[str, Any]:
+        html = await self.client.get_html(url)
+
+        if not html:
+            return {}
+
+        soup = BeautifulSoup(html, "lxml")
+
+        payload = self.from_json_data(url, soup)
+
+        if not payload.get("title"):
+            payload.update(self.from_html_fallback(url, soup))
+
+        payload["raw_json"] = {
+            "source_url": url,
+            "json_ld": extract_json_ld(soup),
+            "next_data": extract_next_data(soup),
+        }
+
+        return payload
 
     def empty_payload(self, url: str) -> dict[str, Any]:
         return {

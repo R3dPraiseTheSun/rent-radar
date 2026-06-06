@@ -136,7 +136,7 @@ if mode == "Top picks":
                         format_func=lambda i: f"Image {i + 1}/{len(image_paths)}",
                         key=gallery_key,
                     )
-                    st.image(image_paths[selected_idx], use_container_width=True)
+                    st.image(image_paths[selected_idx], use_column_width=True)
                 else:
                     st.info("No saved images yet")
 
@@ -393,7 +393,7 @@ elif mode == "Gallery browser":
             cols = st.columns(min(4, len(image_paths)))
             for idx, path in enumerate(image_paths[:8]):
                 with cols[idx % len(cols)]:
-                    st.image(path, use_container_width=True)
+                    st.image(path, use_column_width=True)
 
             st.link_button("Open listing", row.get("source_url"))
 
@@ -409,7 +409,7 @@ elif mode == "Orchestration":
             LIMIT 100
             """
         )
-        st.dataframe(runs, use_container_width=True)
+        st.dataframe(runs)
     except Exception as exc:
         st.info(f"No pipeline_runs table yet or no runs recorded: {exc}")
 
