@@ -13,9 +13,6 @@ permissions:
   contents: read
   packages: write
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rent-radar
-
 jobs:
   build-preprod:
     if: github.event_name == 'push'
@@ -23,6 +20,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set lowercase image name
+        run: |
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=ghcr.io/${OWNER_LC}/rent-radar" >> "$GITHUB_ENV"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -48,6 +50,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set lowercase image name
+        run: |
+          OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE_NAME=ghcr.io/${OWNER_LC}/rent-radar" >> "$GITHUB_ENV"
 
       - uses: docker/setup-qemu-action@v3
 
