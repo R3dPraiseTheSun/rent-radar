@@ -498,6 +498,16 @@ class ImobiliareScraper(BaseRentScraper):
         return None
 
     @staticmethod
+    def normalize_price_number(value: str) -> str:
+        value = value.strip()
+
+        # 1,200 or 1.200 -> 1200
+        if re.fullmatch(r"\d{1,3}(?:[.,]\d{3})+", value):
+            return value.replace(",", "").replace(".", "")
+
+        return value
+
+    @staticmethod
     def extract_price_from_text(text: str) -> float | None:
         if not text:
             return None
