@@ -6,8 +6,11 @@ services:
     container_name: rent-radar
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
     volumes:
       - ./app:/app/app
+      - ./tests:/app/tests
       - ./data:/data
       - ./logs:/logs
     ports:
@@ -21,8 +24,11 @@ services:
     container_name: rent-radar-daily
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
     volumes:
       - ./app:/app/app
+      - ./tests:/app/tests
       - ./data:/data
       - ./logs:/logs
     command: ["python", "-m", "app.pipeline.daily_run"]
