@@ -11,6 +11,9 @@ jobs:
     name: unit-tests
     runs-on: ubuntu-latest
 
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -19,14 +22,20 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-dev libxslt1-dev libjpeg-dev zlib1g-dev
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
 
       - name: Run unit tests
         run: |
-          pytest tests/test_scoring.py -q
+          python -m pytest tests/test_scoring.py tests/test_image_extraction.py -q
 
   scraper-smoke-tests:
     name: scraper-smoke-tests
@@ -34,6 +43,7 @@ jobs:
     timeout-minutes: 8
 
     env:
+      PYTHONPATH: ${{ github.workspace }}
       RUN_LIVE_SCRAPER_TESTS: "true"
       SCRAPER_USER_AGENT: "RentRadarBot/0.1 CI smoke test"
 
@@ -48,13 +58,14 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y libjpeg-dev zlib1g-dev
+          sudo apt-get install -y libxml2-dev libxslt1-dev libjpeg-dev zlib1g-dev
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install -r requirements.txt
+          python -m pip install pytest
 
       - name: Live scraper smoke tests
         run: |
-          pytest tests/test_scraper_smoke.py -q
+          python -m pytest tests/test_scraper_smoke.py -q
