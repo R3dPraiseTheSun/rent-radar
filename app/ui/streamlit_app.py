@@ -125,6 +125,10 @@ col5.metric("Avg €/m²", f"€{valid_df['price_per_m2'].mean():.2f}" if not va
 
 
 if mode == "Top recommendations":
+    st.subheader("Top picks")
+
+    top = valid_df.sort_values("worth_checking_score", ascending=False).head(50)
+
     st.subheader("Market snapshot")
 
     trend_df = read_sql(
@@ -152,23 +156,29 @@ if mode == "Top recommendations":
         len(life_df[life_df["current_status"] == "disappeared"]) if not life_df.empty else 0,
     )
 
+    daily_trend = None
+
     if not trend_df.empty and trend_df["snapshot_date"].nunique() > 1:
-    daily_trend = (
-        trend_df.groupby("snapshot_date")
-        .agg(
-            median_price=("price_eur", "median"),
-            median_price_per_m2=("price_per_m2", "median"),
-            listings=("id", "count"),
+        daily_trend = (
+            trend_df.groupby("snapshot_date")
+            .agg(
+                median_price=("price_eur", "median"),
+                median_price_per_m2=("price_per_m2", "median"),
+                listings=("id", "count"),
+            )
+            .reset_index()
         )
-        .reset_index()
-    )
 
     with st.expander("Recent market trend"):
-        st.line_chart(daily_trend.set_index("snapshot_date")[["median_price", "median_price_per_m2"]])
-
-    st.subheader("Top picks")
-
-    top = valid_df.sort_values("worth_checking_score", ascending=False).head(50)
+        if daily_trend is not None and not daily_trend.empty:
+            st.line_chart(
+                daily_trend.set_index("snapshot_date")[
+                    ["median_price", "median_price_per_m2"]
+                ]
+            )
+            st.dataframe(daily_trend, use_container_width=True)
+        else:
+            st.info("Not enough historical data yet. Run the daily pipeline on at least two different snapshot dates.")
 
     source_filter = st.multiselect(
         "Source",
