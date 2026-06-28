@@ -12,8 +12,10 @@ from app.pipeline.deduplicate import run_deduplication
 from app.pipeline.report import generate_daily_report
 from app.storage.db import get_session, engine
 from app.storage.models import Base, RawListingSnapshot, CuratedListing
-from app.pipeline.images import process_latest_images
-
+from app.pipeline.images import (
+    process_latest_images,
+    process_images_for_top_curated,
+)
 from app.pipeline.scoring import rebuild_intermediate_scores
 
 

@@ -82,7 +82,7 @@ def latest_snapshot_date(session):
     return result[0] if result else date.today()
 
 
-def generate_daily_report(session, snapshot_date=None):
+def generate_daily_report(session, snapshot_date=None, profile_name: str = "default"):
     snapshot_date = snapshot_date or latest_snapshot_date(session)
 
     rows = (
@@ -92,76 +92,65 @@ def generate_daily_report(session, snapshot_date=None):
             IntermediateListingScore.curated_listing_id == CuratedListing.id,
         )
         .filter(CuratedListing.snapshot_date == snapshot_date)
-        .filter(IntermediateListingScore.profile_name == "default")
+        .filter(IntermediateListingScore.profile_name == profile_name)
         .all()
     )
 
     data = []
 
-for row, score in rows:
-    data.append(
-        {
-            "id": row.id,
-            "snapshot_date": row.snapshot_date,
-            "duplicate_group_id": row.duplicate_group_id,
-            "canonical_id": row.canonical_id,
+    for row, score in rows:
+        data.append(
+            {
+                "id": row.id,
+                "snapshot_date": row.snapshot_date,
+                "duplicate_group_id": row.duplicate_group_id,
+                "canonical_id": row.canonical_id,
+                "source": row.source,
+                "source_url": row.source_url,
+                "title": row.title,
+                "description": row.description,
+                "city": row.city,
+                "zone": row.zone,
+                "rooms": row.rooms,
+                "surface_m2": row.surface_m2,
+                "price_eur_raw": row.price_eur_raw,
+                "price_eur_clean": row.price_eur_clean,
+                "price_per_m2": row.price_per_m2,
+                "image_count": row.image_count,
+                "local_image_paths": row.local_image_paths,
+                "is_agency": row.is_agency,
+                "is_private_owner": row.is_private_owner,
+                "is_pet_friendly": row.is_pet_friendly,
+                "has_no_commission": row.has_no_commission,
+                "has_parking": row.has_parking,
+                "upfront_rent_months": row.upfront_rent_months,
+                "deposit_months": row.deposit_months,
+                "agency_commission_percent": row.agency_commission_percent,
+                "agency_commission_months": row.agency_commission_months,
+                "dq_price_suspicious": row.dq_price_suspicious,
+                "dq_missing_description": row.dq_missing_description,
+                "dq_missing_images": row.dq_missing_images,
+                "dq_is_category_page": row.dq_is_category_page,
+                "price_score": score.price_score,
+                "room_score": score.room_score,
+                "surface_score": score.surface_score,
+                "location_score": score.location_score,
+                "feature_score": score.feature_score,
+                "dq_score": score.dq_score,
+                "trend_score": score.trend_score,
+                "worth_checking_score": score.total_score,
+                "score_reasons": score.score_reasons,
+            }
+        )
 
-            "source": row.source,
-            "source_url": row.source_url,
-
-            "title": row.title,
-            "description": row.description,
-
-            "city": row.city,
-            "zone": row.zone,
-            "rooms": row.rooms,
-            "surface_m2": row.surface_m2,
-
-            "price_eur_raw": row.price_eur_raw,
-            "price_eur_clean": row.price_eur_clean,
-            "price_per_m2": row.price_per_m2,
-
-            "image_count": row.image_count,
-            "local_image_paths": row.local_image_paths,
-
-            "is_agency": row.is_agency,
-            "is_private_owner": row.is_private_owner,
-            "is_pet_friendly": row.is_pet_friendly,
-            "has_no_commission": row.has_no_commission,
-            "has_parking": row.has_parking,
-
-            "upfront_rent_months": row.upfront_rent_months,
-            "deposit_months": row.deposit_months,
-            "agency_commission_percent": row.agency_commission_percent,
-            "agency_commission_months": row.agency_commission_months,
-
-            "dq_price_suspicious": row.dq_price_suspicious,
-            "dq_missing_description": row.dq_missing_description,
-            "dq_missing_images": row.dq_missing_images,
-            "dq_is_category_page": row.dq_is_category_page,
-
-            "price_score": score.price_score,
-            "room_score": score.room_score,
-            "surface_score": score.surface_score,
-            "location_score": score.location_score,
-            "feature_score": score.feature_score,
-            "dq_score": score.dq_score,
-            "trend_score": score.trend_score,
-            "worth_checking_score": score.total_score,
-            "score_reasons": score.score_reasons,
-        }
-    )
-    
     df = pd.DataFrame(data)
 
-    if not df.empty:
-        df = compute_scores(df)
-
-    daily_db = df.copy()
-
     if df.empty:
+        daily_db = df
         top = df
     else:
+        daily_db = df.copy()
+
         top = df[
             (df["dq_is_category_page"] == False)
             & (df["dq_price_suspicious"] == False)
