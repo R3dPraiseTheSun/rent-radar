@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from app.storage.models import CuratedListing
+from app.storage.models import CuratedListing, IntermediateListingScore
 
 EXPORT_DIR = Path("/data/exports")
 EXPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -86,61 +86,72 @@ def generate_daily_report(session, snapshot_date=None):
     snapshot_date = snapshot_date or latest_snapshot_date(session)
 
     rows = (
-        session.query(CuratedListing)
+        session.query(CuratedListing, IntermediateListingScore)
+        .join(
+            IntermediateListingScore,
+            IntermediateListingScore.curated_listing_id == CuratedListing.id,
+        )
         .filter(CuratedListing.snapshot_date == snapshot_date)
+        .filter(IntermediateListingScore.profile_name == "default")
         .all()
     )
 
     data = []
 
-    for row in rows:
-        data.append(
-            {
-                "id": row.id,
-                "snapshot_date": row.snapshot_date,
-                "duplicate_group_id": row.duplicate_group_id,
-                "canonical_id": row.canonical_id,
+for row, score in rows:
+    data.append(
+        {
+            "id": row.id,
+            "snapshot_date": row.snapshot_date,
+            "duplicate_group_id": row.duplicate_group_id,
+            "canonical_id": row.canonical_id,
 
-                "source": row.source,
-                "source_url": row.source_url,
+            "source": row.source,
+            "source_url": row.source_url,
 
-                "title": row.title,
-                "description": row.description,
+            "title": row.title,
+            "description": row.description,
 
-                "city": row.city,
-                "zone": row.zone,
-                "rooms": row.rooms,
-                "surface_m2": row.surface_m2,
+            "city": row.city,
+            "zone": row.zone,
+            "rooms": row.rooms,
+            "surface_m2": row.surface_m2,
 
-                "price_eur_raw": row.price_eur_raw,
-                "price_eur_clean": row.price_eur_clean,
-                "price_per_m2": row.price_per_m2,
+            "price_eur_raw": row.price_eur_raw,
+            "price_eur_clean": row.price_eur_clean,
+            "price_per_m2": row.price_per_m2,
 
-                "image_count": row.image_count,
-                "local_image_paths": row.local_image_paths,
+            "image_count": row.image_count,
+            "local_image_paths": row.local_image_paths,
 
-                "is_agency": row.is_agency,
-                "is_private_owner": row.is_private_owner,
-                "is_pet_friendly": row.is_pet_friendly,
-                "has_no_commission": row.has_no_commission,
-                "has_parking": row.has_parking,
+            "is_agency": row.is_agency,
+            "is_private_owner": row.is_private_owner,
+            "is_pet_friendly": row.is_pet_friendly,
+            "has_no_commission": row.has_no_commission,
+            "has_parking": row.has_parking,
 
-                "upfront_rent_months": row.upfront_rent_months,
-                "deposit_months": row.deposit_months,
-                "agency_commission_percent": row.agency_commission_percent,
-                "agency_commission_months": row.agency_commission_months,
+            "upfront_rent_months": row.upfront_rent_months,
+            "deposit_months": row.deposit_months,
+            "agency_commission_percent": row.agency_commission_percent,
+            "agency_commission_months": row.agency_commission_months,
 
-                "dq_price_suspicious": row.dq_price_suspicious,
-                "dq_missing_description": row.dq_missing_description,
-                "dq_missing_images": row.dq_missing_images,
-                "dq_is_category_page": row.dq_is_category_page,
+            "dq_price_suspicious": row.dq_price_suspicious,
+            "dq_missing_description": row.dq_missing_description,
+            "dq_missing_images": row.dq_missing_images,
+            "dq_is_category_page": row.dq_is_category_page,
 
-                "description_score": row.description_score,
-                "image_score": row.image_score,
-                "worth_checking_score": row.worth_checking_score,
-            }
-        )
-
+            "price_score": score.price_score,
+            "room_score": score.room_score,
+            "surface_score": score.surface_score,
+            "location_score": score.location_score,
+            "feature_score": score.feature_score,
+            "dq_score": score.dq_score,
+            "trend_score": score.trend_score,
+            "worth_checking_score": score.total_score,
+            "score_reasons": score.score_reasons,
+        }
+    )
+    
     df = pd.DataFrame(data)
 
     if not df.empty:

@@ -21,6 +21,56 @@ def image_key(source_url: str, image_url: str) -> str:
     return hashlib.sha256(raw).hexdigest()[:24]
 
 
+from app.storage.models import CuratedListing, RawListingSnapshot
+
+
+async def process_images_for_top_curated(
+    session,
+    snapshot_date: date,
+    max_listings: int = 50,
+    limit_per_listing: int = 12,
+):
+    top_rows = (
+        session.query(CuratedListing)
+        .filter(CuratedListing.snapshot_date == snapshot_date)
+        .filter(CuratedListing.dq_is_category_page == False)
+        .order_by(CuratedListing.worth_checking_score.desc())
+        .limit(max_listings)
+        .all()
+    )
+
+    processed = 0
+
+    for curated in top_rows:
+        raw = (
+            session.query(RawListingSnapshot)
+            .filter(RawListingSnapshot.id == curated.raw_snapshot_id)
+            .one_or_none()
+        )
+
+        if not raw:
+            continue
+
+        paths = await process_listing_images(
+            session=session,
+            raw_snapshot=raw,
+            limit_per_listing=limit_per_listing,
+        )
+
+        curated.local_image_paths = paths
+        curated.image_count = len(paths)
+
+        processed += 1
+        session.commit()
+
+        print(
+            f"[images-top] curated_id={curated.id}, "
+            f"images={len(paths)}, title={curated.title}"
+        )
+
+    print(f"[images-top] processed top listings: {processed}")
+
+
 async def download_and_compress_image(
     image_url: str,
     source_url: str,

@@ -1,0 +1,45 @@
+default_profile:
+  name: "default"
+
+  rooms:
+    preferred: [2, 3]
+    acceptable: [4]
+    preferred_bonus: 1.5
+    acceptable_bonus: 0.3
+    bad_penalty: 0.7
+
+  price:
+    target_max_eur: 350
+    hard_max_eur: 450
+    under_target_bonus: 2.0
+    over_target_penalty_per_100_eur: 0.5
+
+  surface:
+    min_m2: 39
+    preferred_min_m2: 51
+    preferred_bonus: 0.6
+    too_small_penalty: 1.0
+
+  features:
+    parking_bonus: 0.7
+    pet_friendly_bonus: 1.0
+    private_owner_bonus: 0.8
+    no_commission_bonus: 0.8
+    agency_penalty: 0.4
+    high_deposit_penalty: 0.7
+    high_commission_penalty: 0.9
+
+  data_quality:
+    missing_images_penalty: 0.1
+    missing_description_penalty: 0.4
+    suspicious_price_penalty: 2.0
+    category_page_penalty: 10.0
+
+  location:
+    preferred_zones:
+      - Nicolina
+      - CUG
+      - Tatarasi
+      - Podu Ros
+      - Centru
+    preferred_zone_bonus: 0.7

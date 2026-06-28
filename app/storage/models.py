@@ -278,3 +278,49 @@ class ScrapeQueue(Base):
     __table_args__ = (
         UniqueConstraint("snapshot_date", "source", "url", name="uq_scrape_queue_daily_url"),
     )
+
+class PreferenceProfile(Base):
+    __tablename__ = "preference_profiles"
+
+    id = Column(Integer, primary_key=True)
+
+    name = Column(String, nullable=False, unique=True)
+    config = Column(JSON, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class IntermediateListingScore(Base):
+    __tablename__ = "intermediate_listing_scores"
+
+    id = Column(Integer, primary_key=True)
+
+    snapshot_date = Column(Date, nullable=False)
+
+    curated_listing_id = Column(Integer, ForeignKey("curated_listings.id"), nullable=False)
+    canonical_id = Column(String, nullable=False, index=True)
+
+    profile_name = Column(String, nullable=False, default="default")
+
+    price_score = Column(Float)
+    room_score = Column(Float)
+    surface_score = Column(Float)
+    location_score = Column(Float)
+    feature_score = Column(Float)
+    dq_score = Column(Float)
+    trend_score = Column(Float)
+
+    total_score = Column(Float)
+
+    score_reasons = Column(JSON)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "snapshot_date",
+            "curated_listing_id",
+            "profile_name",
+            name="uq_intermediate_score_daily_listing_profile",
+        ),
+    )
