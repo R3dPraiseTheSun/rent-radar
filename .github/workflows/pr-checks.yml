@@ -5,6 +5,15 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      run_live_scraper_tests:
+        description: "Run live scraper smoke tests"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
 
 jobs:
   unit-tests:
@@ -41,6 +50,8 @@ jobs:
     name: scraper-smoke-tests
     runs-on: ubuntu-latest
     timeout-minutes: 8
+
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_live_scraper_tests == 'true'
 
     env:
       PYTHONPATH: ${{ github.workspace }}

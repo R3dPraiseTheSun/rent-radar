@@ -153,15 +153,15 @@ if mode == "Top recommendations":
     )
 
     if not trend_df.empty and trend_df["snapshot_date"].nunique() > 1:
-    daily_trend = (
-        trend_df.groupby("snapshot_date")
-        .agg(
-            median_price=("price_eur", "median"),
-            median_price_per_m2=("price_per_m2", "median"),
-            listings=("id", "count"),
+        daily_trend = (
+            trend_df.groupby("snapshot_date")
+            .agg(
+                median_price=("price_eur", "median"),
+                median_price_per_m2=("price_per_m2", "median"),
+                listings=("id", "count"),
+            )
+            .reset_index()
         )
-        .reset_index()
-    )
 
     with st.expander("Recent market trend"):
         st.line_chart(daily_trend.set_index("snapshot_date")[["median_price", "median_price_per_m2"]])
