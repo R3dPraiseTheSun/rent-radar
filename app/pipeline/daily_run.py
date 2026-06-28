@@ -14,6 +14,8 @@ from app.storage.db import get_session, engine
 from app.storage.models import Base, RawListingSnapshot, CuratedListing
 from app.pipeline.images import process_latest_images
 
+from app.pipeline.scoring import rebuild_intermediate_scores
+
 
 async def main():
     snapshot_date = date.today()
@@ -37,15 +39,15 @@ async def main():
         image_max_listings = int(os.getenv("IMAGE_MAX_LISTINGS", "60"))
         image_limit_per_listing = int(os.getenv("IMAGE_LIMIT_PER_LISTING", "4"))
 
-        if image_enabled:
-            print("[daily] processing images")
-            await process_latest_images(
-                session=session,
-                snapshot_date=snapshot_date,
-                max_listings=image_max_listings,
-                limit_per_listing=image_limit_per_listing,
-            )
-        else:
+        if not image_enabled:
+        #     print("[daily] processing images")
+        #     await process_latest_images(
+        #         session=session,
+        #         snapshot_date=snapshot_date,
+        #         max_listings=image_max_listings,
+        #         limit_per_listing=image_limit_per_listing,
+        #     )
+        # else:
             print("[daily] image processing disabled")
 
         print("[daily] rebuilding curated latest")
@@ -66,6 +68,28 @@ async def main():
 
         print("[daily] updating lifecycle")
         update_lifecycle(session, snapshot_date=snapshot_date)
+
+        print("[daily] rebuilding intermediate scores")
+        rebuild_intermediate_scores(
+            session=session,
+            snapshot_date=snapshot_date,
+            profile_name="default",
+        )
+
+        if image_enabled:
+            print("[daily] processing images for top recommendations")
+            await process_images_for_top_curated(
+                session=session,
+                snapshot_date=snapshot_date,
+                max_listings=image_max_listings,
+                limit_per_listing=image_limit_per_listing,
+            )
+
+            print("[daily] rebuilding curated after images")
+            rebuild_curated_latest(session, snapshot_date=snapshot_date)
+
+            print("[daily] rebuilding scores after images")
+            rebuild_intermediate_scores(session, snapshot_date=snapshot_date, profile_name="default")
 
         print("[daily] generating report")
         result = generate_daily_report(session, snapshot_date=snapshot_date)

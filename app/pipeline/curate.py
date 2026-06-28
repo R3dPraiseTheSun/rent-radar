@@ -1,6 +1,7 @@
 import hashlib
 from datetime import date, timedelta
 
+from app.pipeline.location_enrichment import infer_zone_from_text
 from app.pipeline.description_features import extract_upfront_terms, description_score
 from app.storage.models import (
     RawListingSnapshot,
@@ -90,6 +91,13 @@ def rebuild_curated_latest(session, snapshot_date: date | None = None):
 
         canonical_id = make_canonical_id(raw)
 
+        inferred_zone, location_match = infer_zone_from_text(
+            title=raw.title,
+            description=raw.description,
+            url=raw.source_url,
+            current_zone=raw.zone,
+        )
+
         curated = CuratedListing(
             snapshot_date=snapshot_date,
             raw_snapshot_id=raw.id,
@@ -108,7 +116,7 @@ def rebuild_curated_latest(session, snapshot_date: date | None = None):
             price_per_m2=price_per_m2,
 
             city=raw.city,
-            zone=raw.zone,
+            zone=inferred_zone,
             rooms=raw.rooms,
             surface_m2=raw.surface_m2,
 

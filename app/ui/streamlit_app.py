@@ -41,6 +41,22 @@ def safe_list(value):
     return []
 
 
+def safe_json(value):
+    if value is None:
+        return {}
+
+    if isinstance(value, dict):
+        return value
+
+    if isinstance(value, str):
+        try:
+            return ast.literal_eval(value)
+        except Exception:
+            return {}
+
+    return {}
+
+
 def latest_snapshot_date():
     df = read_sql(
         """
@@ -65,13 +81,13 @@ if not snapshot_date:
 mode = st.sidebar.radio(
     "View",
     [
-        "Top picks",
+        "Top recommendations",
+        "Gallery browser",
         "Full daily DB",
         "DQ issues",
         "Trends",
         "Lifecycle",
         "Source summary",
-        "Gallery browser",
         "Orchestration",
     ],
 )
@@ -108,7 +124,48 @@ col4.metric("Avg price", f"€{valid_df['price_eur_clean'].mean():.0f}" if not v
 col5.metric("Avg €/m²", f"€{valid_df['price_per_m2'].mean():.2f}" if not valid_df.empty else "n/a")
 
 
-if mode == "Top picks":
+if mode == "Top recommendations":
+    st.subheader("Market snapshot")
+
+    trend_df = read_sql(
+        """
+        SELECT *
+        FROM listing_price_history
+        ORDER BY snapshot_date
+        """
+    )
+
+    life_df = read_sql(
+        """
+        SELECT *
+        FROM listing_lifecycle
+        """
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric("Recommendations", len(top))
+    c2.metric("Avg top price", f"€{top['price_eur_clean'].mean():.0f}" if not top.empty else "n/a")
+    c3.metric("Tracked listings", len(life_df) if not life_df.empty else 0)
+    c4.metric(
+        "Disappeared",
+        len(life_df[life_df["current_status"] == "disappeared"]) if not life_df.empty else 0,
+    )
+
+    if not trend_df.empty and trend_df["snapshot_date"].nunique() > 1:
+    daily_trend = (
+        trend_df.groupby("snapshot_date")
+        .agg(
+            median_price=("price_eur", "median"),
+            median_price_per_m2=("price_per_m2", "median"),
+            listings=("id", "count"),
+        )
+        .reset_index()
+    )
+
+    with st.expander("Recent market trend"):
+        st.line_chart(daily_trend.set_index("snapshot_date")[["median_price", "median_price_per_m2"]])
+
     st.subheader("Top picks")
 
     top = valid_df.sort_values("worth_checking_score", ascending=False).head(50)
@@ -149,6 +206,17 @@ if mode == "Top picks":
                     f"{row.get('zone') or 'Unknown zone'} | "
                     f"Score: **{row.get('worth_checking_score')}**"
                 )
+
+                score_reasons = row.get("score_reasons")
+
+                if score_reasons:
+                    st.write("Why this was recommended:")
+                    st.json(score_reasons)
+
+                score_reasons = safe_json(row.get("score_reasons"))
+                if score_reasons:
+                    with st.expander("Why this was recommended"):
+                        st.json(score_reasons)
 
                 tags = []
 
